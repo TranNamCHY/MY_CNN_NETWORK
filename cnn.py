@@ -1,21 +1,35 @@
-import mnist
+from tensorflow.keras.datasets import mnist
 import numpy as np
 from conv import Conv3x3
 from maxpool import MaxPool2
 from softmax import Softmax
-
+from tempt_softmax import tempt_Softmax
+from flatten import Flatten
+from dense import Dense
 # We only use the first 1k examples of each set in the interest of time.
 # Feel free to change this if you want.
-train_images = mnist.train_images()[:1000]
+(train_images, train_labels), (test_images, test_labels) = mnist.load_data()
+train_images = train_images[0:1000].astype(np.float32)
+train_images = np.expand_dims(train_images, axis = -1)
+#print(train_images.shape)
+train_labels = train_labels[0:1000]
+print(train_labels.dtype)
+test_images = test_images[0:1000]
+print(test_images.dtype)
+test_labels = test_labels[0:1000]
+print(test_labels.dtype)
+''' train_images = mnist.train_images()[:1000]
 train_labels = mnist.train_labels()[:1000]
 test_images = mnist.test_images()[:1000]
-test_labels = mnist.test_labels()[:1000]
+test_labels = mnist.test_labels()[:1000] '''
 
-conv = Conv3x3(8)                  # 28x28x1 -> 26x26x8
+conv = Conv3x3(num_filters=8,num_chan=1)                  # 28x28x1 -> 26x26x8
 pool = MaxPool2()                  # 26x26x8 -> 13x13x8
-softmax = Softmax(13 * 13 * 8, 10) # 13x13x8 -> 10
-
-def forward(image, label):
+#softmax = Softmax(13 * 13 * 8, 10) # 13x13x8 -> 10
+flatten = Flatten()
+dense = Dense(13 * 13 * 8, 10)
+t_softmax = tempt_Softmax()
+def forward(image, label): 
   '''
   Completes a forward pass of the CNN and calculates the accuracy and
   cross-entropy loss.
@@ -26,8 +40,9 @@ def forward(image, label):
   # to work with. This is standard practice.
   out = conv.forward((image / 255) - 0.5)
   out = pool.forward(out)
-  out = softmax.forward(out)
-
+  out = flatten.forward(out)
+  out = dense.forward(out)
+  out = t_softmax.forward(out)
   # Calculate cross-entropy loss and accuracy. np.log() is the natural log.
   loss = -np.log(out[label])
   acc = 1 if np.argmax(out) == label else 0
@@ -50,7 +65,9 @@ def train(im, label, lr=.005):
   gradient[label] = -1 / out[label]
 
   # Backprop
-  gradient = softmax.backprop(gradient, lr)
+  gradient = t_softmax.backprop(gradient, lr)
+  gradient = dense.backprop(gradient, lr)
+  gradient = flatten.backprop(gradient)
   gradient = pool.backprop(gradient)
   gradient = conv.backprop(gradient, lr)
 

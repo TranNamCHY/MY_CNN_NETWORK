@@ -1,0 +1,189 @@
+import numpy as np
+from conv import Conv3x3
+from maxpool import MaxPool2
+from softmax import Softmax
+from tempt_softmax import tempt_Softmax
+from flatten import Flatten
+from dense import Dense
+import ctypes
+import numpy as np
+import os
+import signal
+import time
+import fcntl
+import struct
+import mmap
+
+SET_PID_COMMAND = 0x40046401
+PRE_SRC_BUFF = 0x40046402
+PRE_KERNEL_BUFF = 0x40046403
+PRE_DEST_BUFF = 0x40046404
+SET_IMAGE_HEIGHT_WIDTH = 0x40046405
+START_CACULATE = 0x40046406
+MAX_DEST_BUFFER = 100*100
+MAX_SRC_BUFFER = 100*100
+KERNEL_LEN = 9
+SIG_TEST = 44
+
+# We only use the first 1k examples of each set in the interest of time.
+# Feel free to change this if you want.
+#(train_images, train_labels), (test_images, test_labels) = mnist.load_data()
+#np.save('train_labels', train_labels)
+#np.save('test_images', test_images)
+#np.save('test_labels', test_labels)
+train_images = np.load('train_images.npy')
+train_labels = np.load('train_labels.npy')
+test_images = np.load('test_images.npy')
+test_labels = np.load('test_labels.npy')
+train_images = train_images[0:1000].astype(np.float32)
+#print(train_images[10])
+train_images = np.expand_dims(train_images, axis = -1)
+#print("After add a dimension: ")
+#print(train_images[10,:,:,1])
+test_image = np.zeros((28,28,1), dtype=np.float32)
+train_labels = train_labels[0:1000]
+
+test_images = test_images[0:1000]
+test_labels = test_labels[0:1000]
+test_image = train_images[0].astype(np.float32)
+#test_image[:,:,:] = 0
+''' train_images = mnist.train_images()[:1000]
+train_labels = mnist.train_labels()[:1000]
+test_images = mnist.test_images()[:1000]
+test_labels = mnist.test_labels()[:1000] '''
+
+Sequential = []
+conv = Conv3x3(num_filters=32,num_chan=1, name="First Conv", fd=-1,src_buffer=None,dest_buffer=None,kernel_buffer=None,num_signal=SIG_TEST)                  # 28x28x1 -> 26x26x32
+Sequential.append(conv)
+
+pool = MaxPool2(name="First Maxpool")                  # 26x26x32 -> 13x13x32
+Sequential.append(pool)
+
+second_conv = Conv3x3(num_filters=16,num_chan=32,name="Second Conv",fd=-1,src_buffer=None,dest_buffer=None,kernel_buffer=None,num_signal=SIG_TEST) # 13x13x32 -> 11x11x16
+Sequential.append(second_conv)
+
+second_pool = MaxPool2(name="Second Maxpool")  # 11x11x16 -> 5x5x16
+Sequential.append(second_pool)
+
+flatten = Flatten(name="Flatten") # 5x5x16 -> 5*5*16
+Sequential.append(flatten)
+
+dense1 = Dense(input_len=5 * 5 * 16, num_neuron=10, name="Dense1", need_update = True) # 5*5*16 -> 64
+Sequential.append(dense1)
+
+#dense2 = Dense(input_len=10, num_neuron=10, name="Dense2", need_update = True) # 64 -> 10
+#Sequential.append(dense2)
+
+t_softmax = tempt_Softmax(name="Softmax") # 10 -> 10
+Sequential.append(t_softmax)
+
+def forward(image, label, Sequential): 
+  '''
+  Completes a forward pass of the CNN and calculates the accuracy and
+  cross-entropy loss.
+  - image is a 2d numpy array
+  - label is a digit
+  '''
+  # We transform the image from [0, 255] to [-0.5, 0.5] to make it easier
+  # to work with. This is standard practice.
+  ''' out = conv.forward((image / 255) - 0.5)
+  out = pool.forward(out)
+  #print(out.dtype)
+  out = second_conv.forward(out) 
+  #print(out) 
+  out = second_pool.forward(out)                       
+  out = flatten.forward(out)
+  out = dense.forward(out)
+  out = t_softmax.forward(out)
+  # Calculate cross-entropy loss and accuracy. np.log() is the natural log.
+  loss = -np.log(out[label])
+  acc = 1 if np.argmax(out) == label else 0 '''
+
+  out = image/255 - 0.5
+  for layer in Sequential:
+    out = layer.forward(out)
+  loss = -np.log(out[label])
+  acc = 1 if np.argmax(out) == label else 0
+  return out, loss, acc
+
+def train(im, label, Sequential, lr=.005):
+  '''
+  Completes a full training step on the given image and label.
+  Returns the cross-entropy loss and accuracy.
+  - image is a 2d numpy array
+  - label is a digit
+  - lr is the learning rate
+  '''
+  # Forward
+  out, loss, acc = forward(im, label,Sequential)
+
+  # Calculate initial gradient
+  gradient = np.zeros(10)
+  gradient[label] = -1 / out[label]
+
+  # Backprop
+  ''' gradient = t_softmax.backprop(gradient, lr)
+  gradient = dense.backprop(gradient, lr)
+  gradient = flatten.backprop(gradient)
+  gradient = second_pool.backprop(gradient)
+  gradient = second_conv.backprop(gradient, lr)
+  gradient = pool.backprop(gradient)
+  #print(gradient)
+  gradient = conv.backprop(gradient, lr)
+  #print("Output shape from conv2d: ") '''
+  for layer in reversed(Sequential):
+    gradient = layer.backprop(gradient, lr)
+  return loss, acc
+
+
+print('MNIST CNN initialized!')
+test_conv = Conv3x3(num_filters=1,num_chan=1, name="First Conv", fd=-1,src_buffer=None,dest_buffer=None,kernel_buffer=None,num_signal=SIG_TEST) 
+mark_time = time.time()
+train(train_images[0], 0, Sequential)
+print(time.time() - mark_time)
+# Train the CNN for 3 epochs
+''' for epoch in range(3):
+  print('--- Epoch %d ---' % (epoch + 1))
+
+  # Shuffle the training data
+  permutation = np.random.permutation(len(train_images))
+  train_images = train_images[permutation]
+  train_labels = train_labels[permutation]
+
+  # Train!
+  loss = 0
+  num_correct = 0
+  mark_time = time.time()
+  for i, (im, label) in enumerate(zip(train_images, train_labels)):
+    if i % 100 == 99:
+      #print("It take: ")
+      #print(time.time() - mark_time)
+      mark_time = time.time()
+      print(
+        '\n[Step %d] Past 100 steps: Average Loss %.3f | Accuracy: %d%%' %
+        (i + 1, loss / 100, num_correct)
+      )
+      loss = 0
+      num_correct = 0
+    elif i % 10 == 9:
+      print(
+        f"\r[Step %d] Past 10 steps: Average Loss %.3f | Accuracy: %d%%" %
+        (i + 1, loss / 100, num_correct), end=""
+      )
+
+    l, acc = train(im, label, Sequential)
+    loss += l
+    num_correct += acc
+
+# Test the CNN
+print('\n--- Testing the CNN ---')
+loss = 0
+num_correct = 0
+for im, label in zip(test_images, test_labels):
+  _, l, acc = forward(im, label)
+  loss += l
+  num_correct += acc
+
+num_tests = len(test_images)
+print('Test Loss:', loss / num_tests)
+print('Test Accuracy:', num_correct / num_tests) '''

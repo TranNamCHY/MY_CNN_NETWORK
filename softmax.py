@@ -1,15 +1,16 @@
 import numpy as np
-
-class Softmax:
+from Layer import Layer
+class Softmax(Layer):
   # A standard fully-connected layer with softmax activation.
 
-  def __init__(self, input_len, nodes):
+  def __init__(self, input_len, nodes, name):
     # We divide by input_len to reduce the variance of our initial values
+    super().__init__(name)
     self.weights = np.random.randn(input_len, nodes) / input_len
     self.biases = np.zeros(nodes)
-
   def forward(self, input):
     '''
+    This perform both dense and softmax.
     Performs a forward pass of the softmax layer using the given input.
     Returns a 1d numpy array containing the respective probability values.
     - input can be any array with any dimensions.
@@ -46,21 +47,26 @@ class Softmax:
       S = np.sum(t_exp)
 
       # Gradients of out[i] against totals
+      # This is the gradient of output of softmax against the output of dense.
       d_out_d_t = -t_exp[i] * t_exp / (S ** 2)
       d_out_d_t[i] = t_exp[i] * (S - t_exp[i]) / (S ** 2)
 
       # Gradients of totals against weights/biases/input
+      # Gradient of output of dense against  weight/biases/input.
       d_t_d_w = self.last_input
       d_t_d_b = 1
       d_t_d_inputs = self.weights
 
       # Gradients of loss against totals
+      # Gradients of loss func against output of dense layer
+      # gradient variable aka the gradient of loss func against the output of softmax
       d_L_d_t = gradient * d_out_d_t
 
       # Gradients of loss against weights/biases/input
+      # Gradients of loss func against weight/biases/input
       d_L_d_w = d_t_d_w[np.newaxis].T @ d_L_d_t[np.newaxis]
       d_L_d_b = d_L_d_t * d_t_d_b
-      d_L_d_inputs = d_t_d_inputs @ d_L_d_t
+      d_L_d_inputs = d_t_d_inputs @ d_L_d_t  
 
       # Update weights / biases
       self.weights -= learn_rate * d_L_d_w
