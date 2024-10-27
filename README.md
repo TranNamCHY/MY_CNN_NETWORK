@@ -8,13 +8,14 @@ This project implements a simple CNN network with all basic Layer for a face cla
 Especially, The Convolution2D and Maxpoolng was designed to run by both way: Using the CPU and using the specialized desgined FPGA module. 
 
 ## Usage
-This CNN network can be used both on Personal computer and Zynq7000 SOC device. Obviously, when running on PC,you can only use the "CPU"
+This CNN network can be used both on Personal computer and Zynq7000 SOC device. Obviously, when running on PC, you can only use the "CPU"
 functionality of Convolution2D and Maxpooling layer.
 Install dependencies (Required both on PC and Zynq7000):
 
+```bash
 pip install numpy
 pip install matplotlib
-
+```
 **Note: on Zynq7000, you may not be able to install numpy or matplotlib by pip package, try to find a prebuilt rootfs with numpy or matplotlib 
 installed or add nunpy package to rootfs by petalinux.
 
@@ -25,7 +26,7 @@ $ python cnn.py
 $ python cnn_keras.py
 ```
 
-You can also [run this code in your browser](https://repl.it/@vzhou842/A-CNN-from-scratch-Part-2).
+
 
 ## More
 
