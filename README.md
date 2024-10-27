@@ -1,18 +1,22 @@
 # A Convolution Neural Network (CNN) From Scratch
-This was written for my 2-part blog post series on CNNs:
-
-- [CNNs, Part 1: An Introduction to Convolution Neural Networks](https://victorzhou.com/blog/intro-to-cnns-part-1/)
-- [CNNs, Part 2: Training a Convolutional Neural Network](https://victorzhou.com/blog/intro-to-cnns-part-2/)
-
-To see the code (forward-phase only) referenced in Part 1, visit the [forward-only](https://github.com/vzhou842/cnn-from-scratch/tree/forward-only) branch.
+This project implements a simple CNN network with all basic Layer for a face classification like:
+- Convolution2D (only support 3x3 kernel side).
+- Maxpoolng (only support 2x2 pool size).
+- Flatten
+- Dense (Fully Connected).
+- SoftMax.
+Especially, The Convolution2D and Maxpoolng was designed to run by both way: Using the CPU and using the specialized desgined FPGA module. 
 
 ## Usage
+This CNN network can be used both on Personal computer and Zynq7000 SOC device. Obviously, when running on PC,you can only use the "CPU"
+functionality of Convolution2D and Maxpooling layer.
+Install dependencies (Required both on PC and Zynq7000):
 
-Install dependencies:
+pip install numpy
+pip install matplotlib
 
-```bash
-$ pip install -r requirements.txt
-```
+**Note: on Zynq7000, you may not be able to install numpy or matplotlib by pip package, try to find a prebuilt rootfs with numpy or matplotlib 
+installed or add nunpy package to rootfs by petalinux.
 
 Then, run it with no arguments:
 
